@@ -1,12 +1,12 @@
 
-# 🚀 TRADO <> IIT Ropar Hackathon — Market Data Collector
+#  TRADO <> IIT Ropar Hackathon — Market Data Collector
 
 Welcome to the **Trado <> IIT Ropar Hackathon**!
 This is **Part 1** of a two-part challenge focused on building a **real-time market data ingestion service** using MQTT and TimescaleDB.
 
 ---
 
-## 🧠 Project Overview
+## Project Overview
 
 This project builds a **Node.js-based backend** that:
 
@@ -19,21 +19,21 @@ This project builds a **Node.js-based backend** that:
 
 ---
 
-## ✅ Highlights of This Implementation
+##  Highlights of This Implementation
 
-### ✅ Cloud-Ready Configuration
+###  Cloud-Ready Configuration
 
 * Compatible with **Timescale Cloud**
 * `.env` driven config for easy deployment
 * Supports secure `sslmode=require` DB URLs
 
-### ✅ Data Pipeline
+###  Data Pipeline
 
 * **Robust MQTT Client** with auto-reconnect
 * **Modular pipeline**: MQTT → Decoder → ATM Detector → Option Subscriber → Batch DB Writer
 * Supports **one-time ATM strike detection per index**
 
-### ✅ Decoding + Processing
+###  Decoding + Processing
 
 * Supports:
 
@@ -42,7 +42,7 @@ This project builds a **Node.js-based backend** that:
   * Fallback to plain JSON
 * Automatically extracts LTP and routes data to DB
 
-### ✅ Batched & Normalized Storage
+###  Batched & Normalized Storage
 
 * Stores all data to `ltp_data` table using:
 
@@ -52,7 +52,7 @@ This project builds a **Node.js-based backend** that:
 
 ---
 
-## 📦 Setup Instructions
+##  Setup Instructions
 
 ### 🔧 Prerequisites
 
@@ -63,7 +63,7 @@ This project builds a **Node.js-based backend** that:
 
 ---
 
-### 🛠️ Database Setup
+###  Database Setup
 
 > **Note**: Supports both local PostgreSQL + TimescaleDB and **Timescale Cloud**.
 
@@ -90,7 +90,7 @@ psql -d market_data -f scripts/db-schema.sql
 
 ---
 
-### 🔧 Project Configuration
+###  Project Configuration
 
 1. Clone this repo:
 
@@ -123,7 +123,7 @@ psql -d market_data -f scripts/db-schema.sql
 
 ---
 
-## 🚀 Run the Project
+##  Run the Project
 
 ```bash
 npm start
@@ -131,7 +131,7 @@ npm start
 
 ---
 
-## 💡 Implementation Details
+##  Implementation Details
 
 ### 1. MQTT Connection
 
@@ -189,69 +189,4 @@ npm start
 
 ---
 
-## 🛠 Tips for Success
-
-* Use `async/await` everywhere — which we’ve done
-* All DB writes are batched
-* Reconnection logic is robust for MQTT
-* Code is modular:
-
-  * `db/` for storage
-  * `mqtt/` for connection, message processing, and subscriptions
-  * `utils/` for strike logic
-
----
-
-## 🧪 Testing Your Setup
-
-Check if it's working:
-
-1. Start the app: `npm start`
-
-2. Watch logs like:
-
-   ```
-   Subscribing to index: index/NIFTY
-   Subscribing to NIFTY options around ATM 22000
-   Subscribed to option: NSE_FO|234123
-   Flushing 100 items to DB...
-   ```
-
-3. Connect to DB:
-
-   ```bash
-   psql "your_connection_url"
-   ```
-
-4. Run:
-
-   ```sql
-   SELECT * FROM ltp_data ORDER BY received_at DESC LIMIT 10;
-   ```
-
----
-
-## 🧱 Project Structure
-
-```
-.
-├── scripts/
-│   └── db-schema.sql
-├── src/
-│   ├── db/
-│   │   └── index.ts
-│   ├── mqtt/
-│   │   ├── client.ts
-│   │   ├── messageProcessor.ts
-│   │   └── subscriptionManager.ts
-│   ├── utils/
-│   │   └── index.ts
-│   ├── config/
-│   │   └── index.ts
-│   └── index.ts
-├── .env
-├── package.json
-```
-
----
 
