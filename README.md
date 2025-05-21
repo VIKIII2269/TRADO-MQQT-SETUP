@@ -1,106 +1,257 @@
-# TRADO <> IIT Ropar Hackathon
 
-Welcome to the Trado <> IIT Ropar Hackathon! This is the first part of a two part hackathon conducted by Trado, at IIT Ropar.
+# 🚀 TRADO <> IIT Ropar Hackathon — Market Data Collector
 
-This project involves building a service that connects to an MQTT broker to subscribe to market data, process it, and store it in a TimescaleDB database.
+Welcome to the **Trado <> IIT Ropar Hackathon**!
+This is **Part 1** of a two-part challenge focused on building a **real-time market data ingestion service** using MQTT and TimescaleDB.
 
-## Task Overview
+---
 
-You need to:
+## 🧠 Project Overview
 
-1. Connect to an EMQX MQTT broker
-2. Subscribe to index data (NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY, etc.)
-3. Process incoming market data
-4. Calculate ATM (At-The-Money) strike prices
-5. Subscribe to options around those ATM strikes
-6. Store all data in a PostgreSQL/TimescaleDB database
+This project builds a **Node.js-based backend** that:
 
-## Setup Instructions
+* Connects to an EMQX MQTT broker
+* Subscribes to **index LTP topics** (like NIFTY, BANKNIFTY)
+* Computes the **ATM (At-The-Money)** strike price
+* Subscribes to **options data (CE & PE) around ATM**
+* Decodes incoming market data (supports **Protobuf**, **Protobuf batch**, or **JSON**)
+* Stores data in a **PostgreSQL DB with TimescaleDB extension** using **efficient batch inserts**
 
-### Prerequisites
+---
 
-- Node.js (v16+ recommended)
-- PostgreSQL with TimescaleDB extension
-- npm or yarn
+## ✅ Highlights of This Implementation
 
-### Database Setup
+### ✅ Cloud-Ready Configuration
 
-1. Install PostgreSQL and TimescaleDB extension
-2. Create a new database: 
+* Compatible with **Timescale Cloud**
+* `.env` driven config for easy deployment
+* Supports secure `sslmode=require` DB URLs
+
+### ✅ Data Pipeline
+
+* **Robust MQTT Client** with auto-reconnect
+* **Modular pipeline**: MQTT → Decoder → ATM Detector → Option Subscriber → Batch DB Writer
+* Supports **one-time ATM strike detection per index**
+
+### ✅ Decoding + Processing
+
+* Supports:
+
+  * `marketdata.MarketData` (Protobuf)
+  * `marketdata.MarketDataBatch` (Protobuf batch)
+  * Fallback to plain JSON
+* Automatically extracts LTP and routes data to DB
+
+### ✅ Batched & Normalized Storage
+
+* Stores all data to `ltp_data` table using:
+
+  * **Batched inserts**
+  * **Topic normalization** via `topics` table
+* Creates **TimescaleDB hypertable** for time-series performance
+
+---
+
+## 📦 Setup Instructions
+
+### 🔧 Prerequisites
+
+* Node.js v16+
+* `psql` CLI
+* **PostgreSQL with TimescaleDB** (or Timescale Cloud)
+* MQTT broker credentials (provided by Trado)
+
+---
+
+### 🛠️ Database Setup
+
+> **Note**: Supports both local PostgreSQL + TimescaleDB and **Timescale Cloud**.
+
+#### a. If Using Local PostgreSQL
+
+```bash
+createdb market_data
+psql -d market_data -f scripts/db-schema.sql
+```
+
+#### b. If Using Timescale Cloud
+
+1. Get your connection URL (like below):
+
    ```
-   createdb market_data
-   ```
-3. Run the schema script:
-   ```
-   psql -d market_data -f scripts/db-schema.sql
+   postgres://user:pass@host:port/dbname?sslmode=require
    ```
 
-### Project Setup
+2. Run schema setup:
 
-1. Clone this repository
+   ```bash
+   psql "your_connection_url" -f scripts/db-schema.sql
+   ```
+
+---
+
+### 🔧 Project Configuration
+
+1. Clone this repo:
+
+   ```bash
+   git clone <repo_url>
+   cd market-data-hackathon
+   ```
+
 2. Install dependencies:
-   ```
+
+   ```bash
    npm install
    ```
-3. Copy `.env.example` to `.env` and update the values
-4. Start the application:
-   ```
-   npm start
+
+3. Create `.env`:
+
+   ```bash
+   cp .env.example .env
    ```
 
-## Implementation Requirements
+   Fill in your DB credentials (especially if using Timescale Cloud):
+
+   ```env
+   PG_HOST=your_host
+   PG_PORT=your_port
+   PG_USER=your_user
+   PG_PASSWORD=your_password
+   PG_DATABASE=your_db
+   ```
+
+---
+
+## 🚀 Run the Project
+
+```bash
+npm start
+```
+
+---
+
+## 💡 Implementation Details
 
 ### 1. MQTT Connection
 
-- Connect to the MQTT broker using the provided credentials
-- The connection should be robust with reconnection capability
+* Connects using secure config with reconnects
+* Client ID is auto-generated per session
 
 ### 2. Index Subscription
 
-- Subscribe to the following indices:
-  - NIFTY
-  - BANKNIFTY
-  - FINNIFTY
-  - MIDCPNIFTY
-- The topic format is `{INDEX_PREFIX}/{indexName}` (e.g., `index/NIFTY`)
+* Subscribes to:
+
+  * `index/NIFTY`, `index/BANKNIFTY`, etc.
+* Tracks whether first message received to trigger ATM logic only once
 
 ### 3. ATM Strike Calculation
 
-- When the first message for an index is received, calculate its ATM strike
-- The ATM strike is the multiple of the strike difference that is closest to the LTP
-- Strike differences:
-  - NIFTY: 50
-  - BANKNIFTY: 100
-  - FINNIFTY: 50
-  - MIDCPNIFTY: 25
-  - BANKEX: 100
-  - SENSEX: 100
+* Automatically computed from first LTP received for each index
+* Uses strike difference logic:
+
+  * NIFTY: 50
+  * BANKNIFTY: 100
+  * FINNIFTY: 50
+  * MIDCPNIFTY: 25
 
 ### 4. Options Subscription
 
-- For each index, subscribe to options at ATM and ATM ± 5 strikes
-- For each strike, subscribe to both CE (Call) and PE (Put) options
-- Use the API to get token numbers:
-  - `https://api.trado.trade/token?index=NIFTY&expiryDate=22-05-2025&optionType=ce&strikePrice=25000`
-- The subscription format is `NSE_FO|{tokenNumber}`
-- Expiry dates:
-  - NIFTY: 22-05-2025
-  - BANKNIFTY: 29-05-2025
-  - FINNIFTY: 29-05-2025
-  - MIDCPNIFTY: 29-05-2025
+* For ATM and ±5 strikes
+* CE + PE for each strike
+* Gets token from API like:
 
-### 5. Database Storage
+  ```
+  https://api.trado.trade/token?index=NIFTY&expiryDate=22-05-2025&optionType=ce&strikePrice=25000
+  ```
+* Subscribes to `NSE_FO|<tokenNumber>`
 
-- Store all received data in the database
-- Implement batch processing for efficiency
-- Normalize data by storing topic information separately
+### 5. Storage in TimescaleDB
 
-## Tips for Success
+* Topics are stored uniquely in `topics(topic_name, index_name, type, strike)`
+* LTP data stored in `ltp_data(topic_id, ltp, received_at)`
+* Uses batch inserts with configurable batch size & interval
 
-1. **Async/Await**: Use async/await for all asynchronous operations
-2. **Batch Processing**: Implement batching for database writes
-3. **Error Handling**: Add proper error handling throughout
-4. **Logging**: Add meaningful logs for debugging
-5. **Code Structure**: Keep your code modular and well-organized
+---
 
-Good luck! 
+## 🔧 Configurable via `.env`
+
+| Variable        | Description                       |
+| --------------- | --------------------------------- |
+| PG\_HOST        | PostgreSQL DB host                |
+| PG\_PORT        | PostgreSQL port                   |
+| PG\_USER        | PostgreSQL username               |
+| PG\_PASSWORD    | PostgreSQL password               |
+| PG\_DATABASE    | Target database name              |
+| INDEX\_PREFIX   | Prefix for index topics (`index`) |
+| BATCH\_SIZE     | Max batch size before insert      |
+| BATCH\_INTERVAL | Max delay (ms) before flush       |
+
+---
+
+## 🛠 Tips for Success
+
+* Use `async/await` everywhere — which we’ve done
+* All DB writes are batched
+* Reconnection logic is robust for MQTT
+* Code is modular:
+
+  * `db/` for storage
+  * `mqtt/` for connection, message processing, and subscriptions
+  * `utils/` for strike logic
+
+---
+
+## 🧪 Testing Your Setup
+
+Check if it's working:
+
+1. Start the app: `npm start`
+
+2. Watch logs like:
+
+   ```
+   Subscribing to index: index/NIFTY
+   Subscribing to NIFTY options around ATM 22000
+   Subscribed to option: NSE_FO|234123
+   Flushing 100 items to DB...
+   ```
+
+3. Connect to DB:
+
+   ```bash
+   psql "your_connection_url"
+   ```
+
+4. Run:
+
+   ```sql
+   SELECT * FROM ltp_data ORDER BY received_at DESC LIMIT 10;
+   ```
+
+---
+
+## 🧱 Project Structure
+
+```
+.
+├── scripts/
+│   └── db-schema.sql
+├── src/
+│   ├── db/
+│   │   └── index.ts
+│   ├── mqtt/
+│   │   ├── client.ts
+│   │   ├── messageProcessor.ts
+│   │   └── subscriptionManager.ts
+│   ├── utils/
+│   │   └── index.ts
+│   ├── config/
+│   │   └── index.ts
+│   └── index.ts
+├── .env
+├── package.json
+```
+
+---
+
